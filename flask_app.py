@@ -11,7 +11,7 @@ from flask import Flask, render_template, Response, jsonify
 app = Flask(__name__)
 
 # Gradio server URL (Ensure this URL is active)
-app_url = "https://ae73f0cabc13e4e647.gradio.live/"  # Replace with active URL from Colab
+app_url = "https://3acfc3ffd46eb820b5.gradio.live/"  # Replace with active URL from Colab
 username = "admin"
 password = "admin"
 
