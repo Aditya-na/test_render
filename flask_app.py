@@ -38,7 +38,7 @@ def describe_frame(frame):
         return result
     except Exception as e:
         print("Error during prediction:", e)
-        return "Error during prediction"
+        # return "Error during prediction"
 
 def process_frames():
     while True:
