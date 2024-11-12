@@ -2,30 +2,99 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Video Feed with Gradio Inference</title>
-    <style>
-        #prediction { font-size: 20px; color: blue; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Access</title>
 </head>
 <body>
-    <h1>Real-time Object Detection with Gradio</h1>
-    <div>
-        <img src="{{ url_for('video_feed') }}" width="640" height="480">
-    </div>
-    <p id="prediction">Prediction: Waiting...</p>
+    <h1>Configure Application</h1>
+    <form id="configForm">
+        <label for="appUrl">Gradio App URL:</label>
+        <input type="text" id="appUrl" required><br><br>
+        
+        <label for="prompt">Prompt:</label>
+        <input type="text" id="prompt" required><br><br>
+
+        <button type="submit">Start</button>
+    </form>
+
+    <h2>Webcam Stream</h2>
+    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
+    
+    <h2>Description:</h2>
+    <p id="description"></p> <!-- This will hold the description -->
 
     <script>
-        function fetchPrediction() {
-            fetch('/get_result')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('prediction').textContent = `Prediction: ${data.result}`;
+        const video = document.getElementById('video');
+        const descriptionElement = document.getElementById('description');
+        const configForm = document.getElementById('configForm');
+        let frameCounter = 0;
+
+        // Form submission to set parameters and start the camera
+        configForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const appUrl = document.getElementById('appUrl').value;
+            const prompt = document.getElementById('prompt').value;
+
+            // Send app_url and prompt to the server
+            fetch('/set_params', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ app_url: appUrl, prompt: prompt })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    startCamera();
+                } else {
+                    alert("Error setting parameters: " + data.message);
+                }
+            });
+        });
+
+        function startCamera() {
+            // Show video element once camera starts
+            video.style.display = "block";
+
+            // Access the webcam stream
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    processFrames();
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(err => {
+                    console.error("Error accessing webcam: ", err);
+                });
         }
 
-        // Fetch prediction every 2 seconds
-        setInterval(fetchPrediction, 2000);
+        function processFrames() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const context = canvas.getContext('2d');
+
+            setInterval(() => {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (frameCounter % 60 === 0) { // Send every 60th frame
+                    canvas.toBlob(blob => {
+                        const formData = new FormData();
+                        formData.append('frame', blob);
+                        fetch('/upload', {
+                            method: 'POST',
+                            body: formData,
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "success") {
+                                descriptionElement.innerText = data.result; // Update with result from server
+                            } else {
+                                descriptionElement.innerText = "Error processing image.";
+                            }
+                        });
+                    });
+                }
+                frameCounter++;
+            }, 1000 / 30); // Assuming a target of ~30 FPS for processing
+        }
     </script>
 </body>
 </html>
